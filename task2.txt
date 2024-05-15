@@ -1,0 +1,286 @@
+DROP TABLE IF EXISTS medical_staff;
+DROP TABLE IF EXISTS care_units;
+DROP TABLE IF EXISTS funding;
+
+DROP TABLE IF EXISTS interns;
+DROP TABLE IF EXISTS ailments;
+DROP TABLE IF EXISTS instructors;
+
+DROP TABLE IF EXISTS sponsors;
+DROP TABLE IF EXISTS sections;
+DROP TABLE IF EXISTS physicians;
+DROP TABLE IF EXISTS diagnoses;
+
+CREATE TABLE sections (
+	id INT PRIMARY KEY IDENTITY(1,1),
+	name VARCHAR(255) UNIQUE NOT NULL,
+	building INT NOT NULL CHECK(building BETWEEN 1 AND 5),
+	financing INT NOT NULL DEFAULT 0 CHECK (financing >= 0)
+);
+
+CREATE TABLE physicians (
+	id INT PRIMARY KEY IDENTITY(1,1),
+	first_name VARCHAR(255) NOT NULL CHECK(first_name <> ''),
+	last_name VARCHAR(1000) NOT NULL CHECK(last_name <> ''),
+	premium INT NOT NULL DEFAULT 0 CHECK(premium > -1),
+    wage INT NOT NULL CHECK(wage > 0)
+);
+
+CREATE TABLE diagnoses (
+	id INT PRIMARY KEY IDENTITY(1,1),
+    name VARCHAR(100) NOT NULL UNIQUE CHECK (name <> '')
+);
+
+CREATE TABLE sponsors (
+	id INT PRIMARY KEY IDENTITY(1,1),
+	name VARCHAR(100) NOT NULL UNIQUE
+);
+
+
+CREATE TABLE ailments (
+	id INT PRIMARY KEY IDENTITY(1,1),
+	name VARCHAR(100) NOT NULL UNIQUE
+);
+
+CREATE TABLE interns (
+	id INT PRIMARY KEY IDENTITY(1,1),
+	physician_id INT NOT NULL REFERENCES physicians(id) ON DELETE CASCADE
+);
+
+CREATE TABLE instructors (
+	id INT PRIMARY KEY IDENTITY(1,1),
+	physician_id INT NOT NULL REFERENCES physicians(id) ON DELETE CASCADE
+);
+
+
+
+CREATE TABLE funding (
+	id INT PRIMARY KEY IDENTITY(1,1),
+    amount INT NOT NULL CHECK (amount > 0),
+    fund_date DATE NOT NULL,
+    section_id INT NOT NULL REFERENCES sections(id) ON DELETE CASCADE,
+    sponsor_id INT NOT NULL REFERENCES sponsors(id) ON DELETE CASCADE
+);
+
+CREATE TABLE care_units (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    name VARCHAR(20) NOT NULL UNIQUE CHECK (name <> ''),
+    capacity INT NOT NULL CHECK (capacity > 0),
+    section_id INT NOT NULL REFERENCES sections(id)
+);
+
+CREATE TABLE medical_staff (
+	id INT PRIMARY KEY IDENTITY(1,1),
+    physician_id INT NOT NULL REFERENCES physicians(id) ON DELETE CASCADE,
+	
+    start_time TIME NOT NULL, CHECK (start_time > '08:00' AND start_time < '18:00'),
+    end_time TIME NOT NULL, CHECK (end_time > start_time),
+	study_date DATE NOT NULL, CHECK (study_date < GETDATE()),
+	
+	ailment_id INT NOT NULL REFERENCES ailments(id),
+    examination_id INT NOT NULL,
+    unit_id INT NOT NULL REFERENCES care_units(id)
+);
+
+INSERT INTO sections (name, building, financing) VALUES
+  ('Cardiology', 4, 10000.00),
+  ('Gastroenterology', 2, 15000.00),
+  ('General Surgery', 3, 20000.00),
+  ('Microbiology', 1, 25000.00),
+  ('Neurology', 5, 30000.00),
+  ('Oncology', 3, 12000.00),
+  ('Chemistry', 2, 18000.00);
+
+INSERT INTO physicians (first_name, last_name, premium, wage) VALUES
+  ('Anthony', 'Davis', 1300.00, 6000.00),
+  ('Joshua', 'Bell', 1500.00, 6000.00),
+  ('Michael', 'Johnson', 2000.00, 7000.00),
+  ('Thomas', 'Gerada', 1200.00, 5500.00),
+  ('John', 'Doe', 1800.00, 6500.00);
+
+INSERT INTO diagnoses (name) VALUES
+  ('Blood Test'),
+  ('X-ray'),
+  ('MRI'),
+  ('Ultrasound');
+
+INSERT INTO sponsors (name) VALUES
+  ('Sponsor 1'),
+  ('Sponsor 2'),
+  ('Sponsor 3');
+
+
+INSERT INTO ailments (name) VALUES 
+  ('Flu'),
+  ('Common Cold'),
+  ('Pneumonia'),
+  ('Asthma');
+
+INSERT INTO interns (physician_id) VALUES 
+  (1),
+  (2);
+
+INSERT INTO instructors (physician_id) VALUES 
+  (3),
+  (4);
+
+INSERT INTO funding (amount, fund_date, section_id, sponsor_id) VALUES
+  (100, '2024-04-23', 1, 1),
+  (200, '2024-04-22', 2, 1),
+  (150, '2024-04-21', 4, 3),
+  (350, '2024-04-21', 2, 2),
+  (400, '2024-04-21', 3, 3),
+  (50,  '2024-04-21', 4, 2),
+  (300, '2024-04-20', 5, 3);
+
+INSERT INTO care_units (name, capacity, section_id) VALUES
+  ('Ward A', 20, 1),
+  ('Ward B', 5, 2),
+  ('Ward C', 25, 3),
+  ('Ward D', 8, 4),
+  ('Ward E', 30, 5),
+  ('Ward F', 13, 7);
+
+INSERT INTO medical_staff (physician_id, start_time, end_time, study_date, examination_id, unit_id, ailment_id) VALUES
+  (1, '09:00', '14:00', '2024-04-26', 1, 1, 1),
+  (1, '09:00', '14:00', '2024-03-22', 3, 3, 2),
+  (1, '09:00', '14:00', '2024-04-19', 4, 5, 3),
+  (2, '10:00', '15:00', '2024-04-24', 2, 6, 1),
+  (2, '10:00', '15:00', '2024-03-21', 3, 2, 2),
+  (2, '10:00', '15:00', '2024-04-22', 4, 4, 3),
+  (3, '11:00', '16:00', '2024-04-11', 3, 5, 1),
+  (3, '11:00', '16:00', '2024-03-15', 2, 4, 2),
+  (3, '11:00', '16:00', '2024-04-17', 1, 6, 3),
+  (4, '12:00', '17:00', '2024-04-18', 3, 3, 1),
+  (4, '12:00', '17:00', '2024-04-19', 2, 2, 2),
+  (4, '12:00', '17:00', '2024-03-20', 1, 5, 3);
+
+
+-- Task 1
+SELECT s.name, s.building, s.financing
+FROM sections AS s
+WHERE s.building = 5
+AND (
+    s.id IN (
+        SELECT c.section_id
+        FROM care_units AS c
+        WHERE c.capacity >= 5
+    )
+    OR s.id IN (
+        SELECT c.section_id
+        FROM care_units AS c
+        WHERE c.capacity > 15
+    )
+);
+
+-- Task 2
+SELECT DISTINCT s.name 
+FROM medical_staff AS ms
+JOIN care_units AS cu ON ms.unit_id = cu.id
+JOIN sections AS s ON cu.section_id = s.id
+WHERE DATEDIFF(day, ms.study_date, GETDATE()) <= 7;
+
+-- Task 3
+SELECT a.name
+FROM ailments AS a
+WHERE a.id NOT IN (
+    SELECT ms.ailment_id
+    FROM medical_staff AS ms
+);
+
+-- Task 4
+SELECT CONCAT(p.first_name, ' ', p.last_name) AS full_name
+FROM physicians AS p
+WHERE p.id NOT IN (
+    SELECT ms.physician_id
+    FROM medical_staff AS ms
+);
+
+-- task 5
+SELECT s.name AS section_name
+FROM sections AS s
+WHERE s.id NOT IN (
+    SELECT cu.section_id
+    FROM care_units AS cu
+    JOIN medical_staff AS ms ON cu.id = ms.unit_id
+);
+
+-- Task 6
+SELECT p.first_name AS doctor_name
+FROM physicians AS p
+WHERE p.id IN (
+    SELECT i.physician_id
+    FROM interns AS i
+);
+
+-- Task 7
+SELECT p.last_name AS intern_surname
+FROM physicians AS p
+WHERE p.id IN (
+    SELECT i.physician_id
+    FROM interns AS i
+) AND p.wage > (
+    SELECT AVG(p2.wage)
+    FROM physicians AS p2
+);
+
+-- Task 8
+SELECT cu.name, cu.capacity
+FROM care_units AS cu
+WHERE cu.section_id NOT IN (
+    SELECT s.id
+    FROM sections AS s
+    WHERE s.building = 3
+) AND cu.capacity > (
+    SELECT MAX(cu2.capacity)
+    FROM care_units AS cu2
+    JOIN sections AS s2 ON cu2.section_id = s2.id
+    WHERE s2.building = 3
+);
+
+-- Task 9
+SELECT DISTINCT p.last_name
+FROM physicians AS p
+JOIN medical_staff AS ms ON p.id = ms.physician_id;
+
+-- Task 10
+SELECT s.name
+FROM sections AS s
+WHERE s.id IN (
+    SELECT cu.section_id
+    FROM care_units AS cu
+    JOIN medical_staff AS ms ON cu.id = ms.unit_id
+    JOIN physicians AS p ON ms.physician_id = p.id
+    JOIN interns AS i ON p.id = i.physician_id
+) AND s.id IN (
+    SELECT cu.section_id
+    FROM care_units AS cu
+    JOIN medical_staff AS ms ON cu.id = ms.unit_id
+    JOIN physicians AS p ON ms.physician_id = p.id
+    JOIN instructors AS inr ON p.id = inr.physician_id
+);
+
+-- Task 11
+SELECT CONCAT(p.first_name, ' ', p.last_name) AS doctor, s.name AS department
+FROM medical_staff AS ms
+JOIN physicians AS p ON ms.physician_id = p.id
+JOIN care_units AS cu ON ms.unit_id = cu.id
+JOIN sections AS s ON cu.section_id = s.id
+WHERE s.financing >= 20000;
+
+-- Task 12
+SELECT p.first_name AS doctor, s.name AS department
+FROM medical_staff AS ms
+JOIN physicians AS p ON ms.physician_id = p.id
+JOIN care_units AS cu ON ms.unit_id = cu.id
+JOIN sections AS s ON cu.section_id = s.id
+WHERE p.wage = (
+    SELECT MAX(p2.wage)
+    FROM physicians AS p2
+);
+
+-- Task 13
+SELECT a.name AS disease, COUNT(ms.id) AS count_examinations
+FROM medical_staff AS ms
+JOIN ailments AS a ON ms.ailment_id = a.id
+GROUP BY a.name;
